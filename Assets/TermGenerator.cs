@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
+using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 
 public class TermGenerator : MonoBehaviour
@@ -37,7 +38,7 @@ public class TermGenerator : MonoBehaviour
 
     void Start()
     {
-        Generate("10 1 + 0 2 2 * 1 3 2",0);
+        Generate("10 1 + 0 2 2 * 1 3 2 + 0 4 1",0);
         GenerateTerm(0);
     }
 
@@ -48,6 +49,8 @@ public class TermGenerator : MonoBehaviour
         this.positionsNwidths[indx][0] = this.TopLeftPosition;
         //GameObject[][] numbers = new GameObject[symbols.Length/2 + 1][];
         this.upOrDown = 1;
+
+        bool oneHandled = false;
 
         while (i < symbols[indx].Length)
         {
@@ -60,8 +63,17 @@ public class TermGenerator : MonoBehaviour
                 }
                 else
                 {
-                    termObjects.Add(GenerateCalculation(floatValues[indx][i], symbols[indx][i + 1], floatValues[indx][i + 2],indx,i));
+                    if (!oneHandled){
+                        oneHandled = true;
+                        termObjects.Add(GenerateCalculation(floatValues[indx][i], symbols[indx][i + 1], floatValues[indx][i + 2],indx,i));
                     i += 3;
+                    }
+                    else {
+                        termObjects.Add(GenerateNumber(floatValues[indx][i],indx,i));
+                        i++;
+
+                    }
+
                 }
             }
             else
@@ -557,18 +569,106 @@ public class TermGenerator : MonoBehaviour
         }
 
         this.currentLevel = maxLevel;
-        this.symbols = new string[maxLevel+1][]; //stringDataArray.Length / 2];
-        this.levels = new int[maxLevel+1][];
-        this.floatValues = new double[levels.Length][];
-        this.positionsNwidths = new float[maxLevel+1][];
+        int anzahlOperationen=0;
+        foreach (double t in floatValues2){
+            if (t == double.MinValue) anzahlOperationen += 1;
+        }
+        this.symbols = new string[anzahlOperationen/*maxLevel*/+1][]; //stringDataArray.Length / 2];
+        this.levels = new int[anzahlOperationen/*maxLevel*/+1][];
+        this.floatValues = new double[anzahlOperationen/*maxLevel*/+1][];
+        this.positionsNwidths = new float[anzahlOperationen/*maxLevel*/+1][];
 
         this.symbols[0] = symbols2;
         this.levels[0]  = levels2;
         this.floatValues[0] = floatValues2;
         this.positionsNwidths[0] = new float[stringDataArray.Length/2];
     }
-
     private void UpdateTerm(int indx)
+    {//string[] symbols, int[] levels, float[] floatValues, int currentLevel){
+
+        List<string> Symbols = symbols[indx-1].ToList<string>();
+        List<int> Levels = levels[indx-1].ToList<int>();
+        List<double> FloatValues = floatValues[indx-1].ToList<double>();
+
+        
+
+        int i = 0;
+        List<int> Update = new List<int>();
+        bool oneHandled = false;
+        List<string> strich = new List<string>();strich.Add("+");strich.Add("-");
+        List<string> punkt = new List<string>();punkt.Add("*");punkt.Add("/");
+        while (i < Levels.Count & !oneHandled)
+        {
+            if (Levels[i] == currentLevel)
+            {
+                Update.Add(i);
+                switch (Symbols[i + 1])
+                {
+                    case "+":
+                        FloatValues[i] = FloatValues[i] + FloatValues[i + 2];
+                        oneHandled =true;
+                        break;
+                    case "-":
+                        FloatValues[i] = FloatValues[i] - FloatValues[i + 2];
+                        oneHandled =true;
+                        break;
+                    case "*":
+                        FloatValues[i] = FloatValues[i] * FloatValues[i + 2];
+                        oneHandled =true;
+                        break;
+                    case "/":
+                        FloatValues[i] = FloatValues[i] / FloatValues[i + 2];
+                        oneHandled =true;
+                        break;
+                    case "^":
+                        FloatValues[i] = Math.Pow(FloatValues[i], FloatValues[i + 2]);
+                        oneHandled =true;
+                        break;
+                }
+                //FloatValues[i] = Math.Round(FloatValues[i], 1);
+                Symbols[i] = Math.Round(FloatValues[i], 1).ToString();
+                //Levels[i] = Levels[i]-1;            
+                i += 3;
+
+            }
+            else
+            {
+                i++;
+            }
+
+        }
+
+        for (int j = Update.Count - 1; j >= 0; j--)
+        {
+            string operation = Symbols[Update[j]+1];
+            Symbols.RemoveAt(Update[j] + 2);
+            Symbols.RemoveAt(Update[j] + 1);
+            FloatValues.RemoveAt(Update[j] + 2);
+            FloatValues.RemoveAt(Update[j] + 1);
+            Levels[Update[j]] -= 1;
+            Levels.RemoveAt(Update[j] + 2);
+            Levels.RemoveAt(Update[j] + 1);
+            if (strich.Contains(operation) && Update[j]+1<Symbols.Count && strich.Contains(Symbols[Update[j]+1]) && Levels[Update[j]+1]==Levels[Update[j]]){
+                Levels[Update[j]] += 1;
+            }
+            if (punkt.Contains(operation) && Update[j]+1<Symbols.Count && punkt.Contains(Symbols[Update[j]+1]) && Levels[Update[j]+1]==Levels[Update[j]]){
+                Levels[Update[j]] += 1;
+            }
+
+        }
+
+        //UNBEDINGT "this" anfügen!!
+        if (!Levels.Contains(currentLevel)){
+            this.currentLevel -= 1;
+        }
+        
+        this.symbols[indx] = Symbols.ToArray();
+        this.floatValues[indx] = FloatValues.ToArray();
+        this.levels[indx] = Levels.ToArray();
+        this.positionsNwidths[indx] = new float[this.levels[indx].Length];
+
+    }
+    /*private void UpdateTerm(int indx)
     {//string[] symbols, int[] levels, float[] floatValues, int currentLevel){
 
         List<string> Symbols = symbols[indx-1].ToList<string>();
@@ -631,7 +731,9 @@ public class TermGenerator : MonoBehaviour
         this.levels[indx] = Levels.ToArray();
         this.positionsNwidths[indx] = new float[this.levels[indx].Length];
 
-    }
+    }*/
+
+
 
     void GenerateSymbol((string, int) data)
     {
