@@ -13,11 +13,16 @@ public class TermGenerator : MonoBehaviour
     private string[][] symbols;
     private int[][] levels;
     private double[][] floatValues;
+
+    private float[][] positionsNwidths;
+
     private int maxLevel;
     private int currentLevel;
     private int TopLeftPosition = -30;
     private int LeftPosition = 0;
     private int backPosition = 70;
+
+    private int upOrDown = 1;
 
     private List<List<GameObject>> termObjects = new List<List<GameObject>>();
 
@@ -32,7 +37,7 @@ public class TermGenerator : MonoBehaviour
 
     void Start()
     {
-        Generate("10 1 + 0 2 2 * 1 4 2",0);
+        Generate("10 1 + 0 2 2 * 1 3 2",0);
         GenerateTerm(0);
     }
 
@@ -40,7 +45,9 @@ public class TermGenerator : MonoBehaviour
     {
         int i = 0;
         this.LeftPosition = this.TopLeftPosition;
+        this.positionsNwidths[indx][0] = this.TopLeftPosition;
         //GameObject[][] numbers = new GameObject[symbols.Length/2 + 1][];
+        this.upOrDown = 1;
 
         while (i < symbols[indx].Length)
         {
@@ -48,19 +55,19 @@ public class TermGenerator : MonoBehaviour
             {
                 if (levels[indx][i] < this.currentLevel  || levels[indx].Length == 1)
                 {
-                    termObjects.Add(GenerateNumber(floatValues[indx][i],indx));
+                    termObjects.Add(GenerateNumber(floatValues[indx][i],indx,i));
                     i++;
                 }
                 else
                 {
-                    termObjects.Add(GenerateCalculation(floatValues[indx][i], symbols[indx][i + 1], floatValues[indx][i + 2],indx));
+                    termObjects.Add(GenerateCalculation(floatValues[indx][i], symbols[indx][i + 1], floatValues[indx][i + 2],indx,i));
                     i += 3;
                 }
             }
             else
             {
                 //Symbol ausgeben
-                termObjects.Add(GenerateSymbol(symbols[indx][i],indx));
+                termObjects.Add(GenerateSymbol(symbols[indx][i],indx,i));
                 i++;
             }
         }
@@ -73,10 +80,19 @@ public class TermGenerator : MonoBehaviour
         }
     }
     //shoud be overriden after initialization to GenerateNumber(double number, index z)
-    List<GameObject> GenerateNumber(double number, int indx)
+
+    List<GameObject> GenerateNumber(double number, int indx, int localIndex)
     {
         int PrecommaDigits = (int)Math.Floor(number);
         int RightPosition = this.LeftPosition;
+        /*int halfWidth = HalfWidthOfNumber(number);
+        if (halfWidth != 0){
+            positionsNwidths[indx][localIndex] += halfWidth;
+        }*/
+        
+        RightPosition = (int) positionsNwidths[indx][localIndex];//this.LeftPosition;
+        
+        
         List<GameObject> Objects = new List<GameObject>();
         UnityEngine.Vector3 center = new UnityEngine.Vector3(RightPosition, 0, indx*this.backPosition);
 
@@ -107,7 +123,7 @@ public class TermGenerator : MonoBehaviour
                 if (v > RightPosition) RightPosition = v;
             }
             else { h += pos; }
-            UnityEngine.Vector3 versch = new UnityEngine.Vector3(v, h, 0);
+            UnityEngine.Vector3 versch = new(v, h, 0);
             GameObject c = GameObject.CreatePrimitive(PrimitiveType.Cube);
             c.transform.position = center + versch * 2;
             i += 1;
@@ -116,6 +132,10 @@ public class TermGenerator : MonoBehaviour
         //TO DO: Nachkommazahlen
 
         this.LeftPosition = this.LeftPosition + RightPosition * 2 + 5;
+        if (localIndex < this.positionsNwidths[indx].Length-1){
+            this.positionsNwidths[indx][localIndex+1] =positionsNwidths[indx][localIndex] + RightPosition * 2 + 5;
+        }
+            
 
         return Objects;
 
@@ -123,16 +143,90 @@ public class TermGenerator : MonoBehaviour
 
     }
 
-    IEnumerator SummenRoutine(float duration, double leftNumber, string operation, double rightNumber, int indx)
+    List<GameObject> GenerateNumber2(double number, UnityEngine.Vector3 position){
+        int PrecommaDigits = (int)Math.Floor(number);
+
+        List<GameObject> Objects = new List<GameObject>();
+        UnityEngine.Vector3 center = position;
+
+
+        GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        cube.transform.position = center;
+        Objects.Add(cube);
+
+        int v = 0;
+        int h = 0;
+        bool waagr = false;
+        int pos = -1;
+        int i = 0;
+        int j = 0;
+        int diff = 1;
+        while (i < PrecommaDigits - 1)
+        {
+            if (Math.Abs(v - h) == diff || v == h)
+            {
+                if (Math.Abs(v - h) == diff) diff += 1;
+                if (j % 2 == 0) pos = (-1) * pos;
+                j += 1;
+                waagr = !waagr;
+            }
+            if (waagr)
+            {
+                v += pos;
+            }
+            else { h += pos; }
+            UnityEngine.Vector3 versch = new(v, h, 0);
+            GameObject c = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            c.transform.position = center + versch * 2;
+            i += 1;
+            Objects.Add(c);
+        }
+        //TO DO: Nachkommazahlen
+
+        return Objects;
+    }
+
+    int HalfWidthOfNumber(double number){
+        int RightPosition = 0;
+        int v = 0;
+        int h = 0;
+        bool waagr = false;
+        int pos = -1;
+        int i = 0;
+        int j = 0;
+        int diff = 1;
+        while (i < number - 1)
+        {
+            if (Math.Abs(v - h) == diff || v == h)
+            {
+                if (Math.Abs(v - h) == diff) diff += 1;
+                if (j % 2 == 0) pos = (-1) * pos;
+                j += 1;
+                waagr = !waagr;
+            }
+            if (waagr)
+            {
+                v += pos;
+                if (v > RightPosition) RightPosition = v;
+            }
+            else { h += pos; }
+            i += 1;
+        }
+        return RightPosition * 2;
+    }
+
+    IEnumerator SummenRoutine(float duration, double leftNumber, string operation, double rightNumber, int indx, int localIndex)
     {
         int RightPosition = this.LeftPosition;
+        RightPosition = (int) this.positionsNwidths[indx][localIndex];
 
 
         while (true)
         {
-            List<GameObject> left = GenerateNumber(leftNumber, indx);
-            List<GameObject> op = GenerateSymbol(operation, indx);
-            List<GameObject> right = GenerateNumber(rightNumber, indx);
+            List<GameObject> left = GenerateNumber(leftNumber, indx, localIndex);
+            List<GameObject> op = GenerateSymbol(operation, indx, localIndex+1);
+            List<GameObject> right = GenerateNumber(rightNumber, indx, localIndex+2);
+            int HalWidthRightN = HalfWidthOfNumber(rightNumber);
 
             yield return new WaitForSecondsRealtime(duration);
             foreach (GameObject o in op)
@@ -140,7 +234,7 @@ public class TermGenerator : MonoBehaviour
                 Destroy(o);
             }
             yield return new WaitForSecondsRealtime(duration);
-            UnityEngine.Vector3 schieben = new UnityEngine.Vector3(-8, 0, 0);
+            UnityEngine.Vector3 schieben = new UnityEngine.Vector3(-(HalWidthRightN+5), 0, 0);
             foreach (GameObject o in right)
             {
                 o.transform.position += schieben;
@@ -156,7 +250,7 @@ public class TermGenerator : MonoBehaviour
                 Destroy(o);
             }
             this.LeftPosition = RightPosition;
-            List<GameObject> summe = GenerateNumber(leftNumber + rightNumber, indx);
+            List<GameObject> summe = GenerateNumber(leftNumber + rightNumber, indx, localIndex + 1);
             yield return new WaitForSecondsRealtime(duration);
             foreach (GameObject o in summe)
             {
@@ -167,15 +261,18 @@ public class TermGenerator : MonoBehaviour
 
     }
 
-    IEnumerator MultiplicationRoutine(float duration, double leftNumber, string operation, double rightNumber, int indx){
+    IEnumerator MultiplicationRoutine(float duration, double leftNumber, string operation, double rightNumber, int indx, int localIndex){
         int RightPosition = this.LeftPosition;
-        UnityEngine.Vector3 schieben = new UnityEngine.Vector3(-5, 0, 0);
+        RightPosition = (int) this.positionsNwidths[indx][localIndex];
+
+        int wL = HalfWidthOfNumber(leftNumber);
+        UnityEngine.Vector3 schieben = new UnityEngine.Vector3(-(wL+5), 0, 0);
 
         while (true){
 
-            List<GameObject> left = GenerateNumber(leftNumber, indx);
-            List<GameObject> op = GenerateSymbol(operation, indx);
-            List<GameObject> right = GenerateNumber(rightNumber, indx);
+            List<GameObject> left = GenerateNumber(leftNumber, indx, localIndex);
+            List<GameObject> op = GenerateSymbol(operation, indx, localIndex + 1);
+            List<GameObject> right = GenerateNumber(rightNumber, indx, localIndex + 2);
             yield return new WaitForSecondsRealtime(duration);
                         foreach (GameObject o in op)
             {
@@ -193,12 +290,19 @@ public class TermGenerator : MonoBehaviour
             List<GameObject>[] summanden = new List<GameObject>[(int) rightNumber];
             List<GameObject>[] pluse = new List<GameObject>[(int) rightNumber-1];
 
+            
+            UnityEngine.Vector3 start = new UnityEngine.Vector3(RightPosition, 10*this.upOrDown, indx*10);
+            UnityEngine.Vector3 run = start;
+
             for (int i = 0;i<rightNumber-1;i++){
-                summanden[i] = GenerateNumber(leftNumber, indx);
+                summanden[i] = GenerateNumber2(leftNumber, run);
                 yield return new WaitForSecondsRealtime(duration/summanden.Length);
-                pluse[i] = GenerateSymbol("+", indx);
+                run += new UnityEngine.Vector3(wL+5,0,0);
+
+                pluse[i] = GenerateSymbol2("+", run);
+                run += new UnityEngine.Vector3(wL+5,0,0);
             }
-            summanden[summanden.Length-1] = GenerateNumber(leftNumber, indx);
+            summanden[summanden.Length-1] = GenerateNumber2(leftNumber, run);
             yield return new WaitForSecondsRealtime(duration/summanden.Length);
             for (int i = pluse.Length-1;i>=0;i--){
                 foreach (GameObject o in pluse[i]){
@@ -217,15 +321,16 @@ public class TermGenerator : MonoBehaviour
                 foreach (GameObject o in summanden[i]){
                     Destroy(o);
                 }
+                run -= new UnityEngine.Vector3(2*wL+10,0,0);
                 //this.LeftPosition -= 10;
-                summanden[i] = GenerateNumber(zwischensumme, indx);
+                summanden[i] = GenerateNumber2(zwischensumme, run);
                 yield return new WaitForSecondsRealtime(duration/summanden.Length);
             }
             foreach (GameObject o in summanden[0]){
                 Destroy(o);
             }
             //this.LeftPosition = RightPosition + 10;
-            List<GameObject> resultat = GenerateNumber(leftNumber*rightNumber, indx);
+            List<GameObject> resultat = GenerateNumber(leftNumber*rightNumber, indx, localIndex + 1);
             yield return new WaitForSecondsRealtime(duration);
             foreach (GameObject o in resultat){
                 Destroy(o);
@@ -237,7 +342,7 @@ public class TermGenerator : MonoBehaviour
     }
 
 
-    List<GameObject> GenerateCalculation(double leftNumber, string operation, double rightNumber, int indx)
+    List<GameObject> GenerateCalculation(double leftNumber, string operation, double rightNumber, int indx, int localIndex)
     {
         List<GameObject> objects = new List<GameObject>();
         float duration;
@@ -247,7 +352,7 @@ public class TermGenerator : MonoBehaviour
             case "+":
 
                 duration = 2f;
-                StartCoroutine(SummenRoutine(duration, leftNumber, operation, rightNumber, indx));
+                StartCoroutine(SummenRoutine(duration, leftNumber, operation, rightNumber, indx, localIndex));
 
                 //objects = GenerateNumber(leftNumber + rightNumber);
 
@@ -256,11 +361,14 @@ public class TermGenerator : MonoBehaviour
                 break;
             case "*":
                 duration = 2f;
-                StartCoroutine(MultiplicationRoutine(duration, leftNumber, operation, rightNumber, indx));
+                this.upOrDown *= -1;
+                StartCoroutine(MultiplicationRoutine(duration, leftNumber, operation, rightNumber, indx, localIndex));
+
 
 
                 break;
             case "/":
+                this.upOrDown *= -1;
                 break;
             case "^":
                 break;
@@ -272,10 +380,11 @@ public class TermGenerator : MonoBehaviour
 
     }
 
-    List<GameObject> GenerateSymbol(string operation, int indx)
+    List<GameObject> GenerateSymbol(string operation, int indx, int localIndex)
     {
         List<GameObject> objects = new List<GameObject>();
-        UnityEngine.Vector3 center = new UnityEngine.Vector3(this.LeftPosition, 0, indx*this.backPosition);
+        int RightPosition = (int) this.positionsNwidths[indx][localIndex];
+        UnityEngine.Vector3 center = new UnityEngine.Vector3(RightPosition/*this.LeftPosition*/, 0, indx*this.backPosition);
 
         GameObject mitte, links, rechts, unten, oben;
         switch (operation)
@@ -342,8 +451,82 @@ public class TermGenerator : MonoBehaviour
                 break;
         }
         this.LeftPosition += 5;
+        this.positionsNwidths[indx][localIndex + 1] = RightPosition + 5;
         return objects;
         //termObjects.Add(objects);
+    }
+
+    List<GameObject> GenerateSymbol2(string operation, UnityEngine.Vector3 position){
+        List<GameObject> objects = new List<GameObject>();
+        
+        UnityEngine.Vector3 center = position;
+
+        GameObject mitte, links, rechts, unten, oben;
+        switch (operation)
+        {
+            case "+":
+                mitte = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                mitte.transform.position = center;
+                objects.Add(mitte);
+                rechts = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                rechts.transform.position = center + UnityEngine.Vector3.right;
+                objects.Add(rechts);
+                links = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                links.transform.position = center + UnityEngine.Vector3.left;
+                objects.Add(links);
+                unten = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                unten.transform.position = center + UnityEngine.Vector3.down;
+                objects.Add(unten);
+                oben = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                oben.transform.position = center + UnityEngine.Vector3.up;
+                objects.Add(oben);
+                break;
+            case "-":
+                mitte = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                mitte.transform.position = center;
+                objects.Add(mitte);
+                rechts = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                rechts.transform.position = center + UnityEngine.Vector3.right;
+                objects.Add(rechts);
+                links = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                links.transform.position = center + UnityEngine.Vector3.left;
+                objects.Add(links);
+                break;
+            case "*":
+                mitte = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                mitte.transform.position = center;
+                objects.Add(mitte);
+                break;
+            case "/":
+                unten = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                unten.transform.position = center + UnityEngine.Vector3.down;
+                objects.Add(unten);
+                oben = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                oben.transform.position = center + UnityEngine.Vector3.up;
+                objects.Add(oben);
+                break;
+            case "^":
+                rechts = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                rechts.transform.position = center + UnityEngine.Vector3.right;
+                rechts.transform.rotation = UnityEngine.Quaternion.Euler(0, 0, 45);
+                objects.Add(rechts);
+                links = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                links.transform.position = center + UnityEngine.Vector3.left;
+                links.transform.rotation = UnityEngine.Quaternion.Euler(0, 0, 45);
+                objects.Add(links);
+                oben = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                oben.transform.position = center + UnityEngine.Vector3.up;
+                oben.transform.rotation = UnityEngine.Quaternion.Euler(0, 0, 45);
+                objects.Add(oben);
+                break;
+            default:
+                mitte = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+                mitte.transform.position = center;
+                objects.Add(mitte);
+                break;
+        }
+
+        return objects;
     }
 
 
@@ -377,10 +560,12 @@ public class TermGenerator : MonoBehaviour
         this.symbols = new string[maxLevel+1][]; //stringDataArray.Length / 2];
         this.levels = new int[maxLevel+1][];
         this.floatValues = new double[levels.Length][];
+        this.positionsNwidths = new float[maxLevel+1][];
 
         this.symbols[0] = symbols2;
         this.levels[0]  = levels2;
         this.floatValues[0] = floatValues2;
+        this.positionsNwidths[0] = new float[stringDataArray.Length/2];
     }
 
     private void UpdateTerm(int indx)
@@ -444,6 +629,7 @@ public class TermGenerator : MonoBehaviour
         this.symbols[indx] = Symbols.ToArray();
         this.floatValues[indx] = FloatValues.ToArray();
         this.levels[indx] = Levels.ToArray();
+        this.positionsNwidths[indx] = new float[this.levels[indx].Length];
 
     }
 
