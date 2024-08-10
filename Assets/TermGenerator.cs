@@ -38,7 +38,7 @@ public class TermGenerator : MonoBehaviour
 
     void Start()
     {
-        Generate("10 1 + 0 2 2 * 1 3 2 + 0 4 1",0);
+        Generate("10 1 + 0 2 2 ^ 1 4 2",0);
         GenerateTerm(0);
     }
 
@@ -354,6 +354,162 @@ public class TermGenerator : MonoBehaviour
     }
 
 
+    IEnumerator PowerRoutine(float duration, double leftNumber, string operation, double rightNumber, int indx, int localIndex){
+        int RightPosition = this.LeftPosition;
+        RightPosition = (int) this.positionsNwidths[indx][localIndex];
+
+        int wL = HalfWidthOfNumber(leftNumber);
+        UnityEngine.Vector3 schieben = new UnityEngine.Vector3(-(wL+5), 0, 0);
+
+        while (true){
+
+            List<GameObject> left = GenerateNumber(leftNumber, indx, localIndex);
+            List<GameObject> op = GenerateSymbol(operation, indx, localIndex + 1);
+            List<GameObject> right = GenerateNumber(rightNumber, indx, localIndex + 2);
+            yield return new WaitForSecondsRealtime(duration);
+                        foreach (GameObject o in op)
+            {
+                Destroy(o);
+            }
+                        foreach (GameObject o in left)
+            {
+                Destroy(o);
+            }
+            foreach (GameObject o in right)
+            {
+                Destroy(o);
+            }
+            this.LeftPosition = RightPosition;
+            List<GameObject>[] factors = new List<GameObject>[(int) rightNumber];
+            List<GameObject>[] dots = new List<GameObject>[(int) rightNumber-1];
+
+            
+            UnityEngine.Vector3 start = new UnityEngine.Vector3(RightPosition, 10*this.upOrDown, indx*10);
+            UnityEngine.Vector3 run = start;
+
+            for (int i = 0;i<rightNumber-1;i++){
+                factors[i] = GenerateNumber2(leftNumber, run);
+                yield return new WaitForSecondsRealtime(duration/dots.Length);
+                run += new UnityEngine.Vector3(wL+5,0,0);
+
+                dots[i] = GenerateSymbol2("*", run);
+                run += new UnityEngine.Vector3(wL+5,0,0);
+            }
+            factors[factors.Length-1] = GenerateNumber2(leftNumber, run);
+            yield return new WaitForSecondsRealtime(duration/factors.Length);
+            for (int i = dots.Length-1;i>=0;i--){
+                foreach (GameObject o in dots[i]){
+                    //Destroy(o);
+                    // Get the Renderer component from the new cube
+                    var cubeRenderer = o.GetComponent<Renderer>();
+
+                     // Call SetColor using the shader property name "_Color" and setting the color to red
+                     cubeRenderer.material.SetColor("_Color", Color.red);
+                }
+                
+                foreach (GameObject o in factors[i+1]){
+                    //o.transform.position += schieben;
+                    var cubeRenderer = o.GetComponent<Renderer>();
+                    cubeRenderer.material.SetColor("_Color", Color.red);
+                    yield return new WaitForSecondsRealtime(duration/factors[i+1].Count);
+                }
+                foreach (GameObject o in factors[i]){
+                    //o.transform.position += schieben;
+                    var cubeRenderer = o.GetComponent<Renderer>();
+                    cubeRenderer.material.SetColor("_Color", Color.red);
+                    yield return new WaitForSecondsRealtime(duration/factors[i+1].Count);
+                }
+                yield return new WaitForSecondsRealtime(duration/factors.Length);
+                int zwischenproduct = factors[i].Count * factors[i+1].Count;
+                this.LeftPosition = (int) factors[i][0].transform.position.x;
+                foreach (GameObject o in factors[i+1]){
+                    Destroy(o);
+                }
+                foreach (GameObject o in dots[i]){
+                    Destroy(o);
+                }
+                foreach (GameObject o in factors[i]){
+                    Destroy(o);
+                }
+                run -= new UnityEngine.Vector3(2*wL+10,0,0);
+                GameObject leftBracket = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                var BracketRenderer = leftBracket.GetComponent<Renderer>();
+                BracketRenderer.material.SetColor("_Color", Color.blue);
+                leftBracket.transform.position = run;
+                run += new UnityEngine.Vector3(wL+5,0,0);
+                List<GameObject>[] leftSummanden = new List<GameObject>[(int)(zwischenproduct/leftNumber)];
+                List<GameObject>[] pluse = new List<GameObject>[leftSummanden.Length-1];
+            for (int j = 0;j<zwischenproduct/leftNumber-1;j++){
+                leftSummanden[j] = GenerateNumber2(leftNumber, run);
+                yield return new WaitForSecondsRealtime(duration/((int) (zwischenproduct/leftNumber)));
+                run += new UnityEngine.Vector3(wL+5,0,0);
+
+                pluse[j] = GenerateSymbol2("+", run);
+                run += new UnityEngine.Vector3(wL+5,0,0);
+            }
+            leftSummanden[(int)(zwischenproduct/leftNumber)-1] = GenerateNumber2(leftNumber, run);
+            run += new UnityEngine.Vector3(wL+5,0,0);
+            GameObject rightBracket = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            BracketRenderer = rightBracket.GetComponent<Renderer>();
+            BracketRenderer.material.SetColor("_Color", Color.blue);
+            rightBracket.transform.position = run;
+            run -= new UnityEngine.Vector3(2*wL+10,0,0);
+            yield return new WaitForSecondsRealtime(duration);
+            //aufsummieren 
+            double zwischensumme = leftNumber;
+            for (int j = pluse.Length-1;j>=0;j--){
+                
+                foreach (GameObject o in pluse[j]){
+                    Destroy(o);
+                }
+                yield return new WaitForSecondsRealtime(duration/5);
+                foreach (GameObject o in leftSummanden[j+1]){
+                    o.transform.position /*-= new UnityEngine.Vector3(wL+5,0,0);*/+= schieben;
+                }
+                rightBracket.transform.position /*-= new UnityEngine.Vector3(wL+5,0,0);*/+= schieben;
+                yield return new WaitForSecondsRealtime(duration/leftSummanden.Length);
+                zwischensumme += leftNumber;
+                
+                foreach (GameObject o in leftSummanden[j+1]){
+                    Destroy(o);
+                }
+                foreach (GameObject o in leftSummanden[j]){
+                    Destroy(o);
+                }
+
+                run -= new UnityEngine.Vector3(2*wL+10,0,0);
+                //this.LeftPosition -= 10;
+                leftSummanden[j] = GenerateNumber2(zwischensumme, run);
+                yield return new WaitForSecondsRealtime(duration/leftSummanden.Length);
+            }
+            foreach (GameObject o in leftSummanden[0]){
+                Destroy(o);
+            }
+            Destroy(leftBracket);
+            Destroy(rightBracket);
+
+
+            
+
+                //this.LeftPosition -= 10;
+                factors[i] = GenerateNumber2(zwischenproduct, run);
+                yield return new WaitForSecondsRealtime(duration/factors.Length);
+            }
+            foreach (GameObject o in factors[0]){
+                Destroy(o);
+            }
+            //this.LeftPosition = RightPosition + 10;
+            List<GameObject> resultat = GenerateNumber(Math.Pow(leftNumber,rightNumber), indx, localIndex + 1);
+            yield return new WaitForSecondsRealtime(duration);
+            foreach (GameObject o in resultat){
+                Destroy(o);
+            }
+            this.LeftPosition = RightPosition;
+
+        }
+
+    }
+
     List<GameObject> GenerateCalculation(double leftNumber, string operation, double rightNumber, int indx, int localIndex)
     {
         List<GameObject> objects = new List<GameObject>();
@@ -383,6 +539,11 @@ public class TermGenerator : MonoBehaviour
                 this.upOrDown *= -1;
                 break;
             case "^":
+                duration = 2f;
+                this.upOrDown *= -1;
+                StartCoroutine(PowerRoutine(duration, leftNumber, operation, rightNumber, indx, localIndex));
+
+
                 break;
             default:
                 break;
